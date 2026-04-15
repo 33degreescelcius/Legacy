@@ -119,21 +119,32 @@ local function AssetLoader()
     end
 
     local function HttpGet(Url)
-        local Response = request({
-            Url = Url,
-            Method = "GET",
-            Headers = {
-                ["User-Agent"] = "Roblox",
-                ["Accept"] = "application/vnd.github+json"
-            }
-        })
-        return Response.Body
+        local Success, Response = pcall(function()
+            return request({
+                Url = Url,
+                Method = "GET",
+                Headers = {
+                    ["User-Agent"] = "Roblox",
+                    ["Accept"] = "application/vnd.github+json"
+                }
+            })
+        end)
+        if Success and Response then
+            return Response.Body
+        end
+        return ""
     end
 
     local function GetRemoteSHA()
         local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
-        local Data = HttpService:JSONDecode(HttpGet(Url))
-        return Data and Data.sha
+        local Success, Result = pcall(function()
+            local Body = HttpGet(Url)
+            local Data = HttpService:JSONDecode(Body)
+            return Data and Data.sha
+        end)
+        if Success then
+            return Result
+        end
     end
 
     local function GetLocalSHA()
