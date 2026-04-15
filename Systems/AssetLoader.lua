@@ -118,23 +118,6 @@ local function AssetLoader()
         return AssetLoader
     end
 
-    local function HttpGet(Url)
-        local Success, Response = pcall(function()
-            return request({
-                Url = Url,
-                Method = "GET",
-                Headers = {
-                    ["User-Agent"] = "Roblox",
-                    ["Accept"] = "application/vnd.github+json"
-                }
-            })
-        end)
-        if Success and Response and Response.Body and #Response.Body > 0 then
-            return Response.Body
-        end
-        return nil
-    end
-
     local function SafeJSONDecode(Body)
         if not Body or #Body == 0 then
             return nil
@@ -146,39 +129,6 @@ local function AssetLoader()
             return Result
         end
         return nil
-    end
-
-    local function GetRemoteSHA()
-        local ApiUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
-        local Body = HttpGet(ApiUrl)
-        local Data = SafeJSONDecode(Body)
-
-        if Data and Data.sha then
-            return Data.sha
-        end
-
-        local RawUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/git/refs/heads/main"
-        Body = HttpGet(RawUrl)
-        Data = SafeJSONDecode(Body)
-
-        if Data and Data.object and Data.object.sha then
-            return Data.object.sha
-        end
-
-        return nil
-    end
-
-    local function GetLocalSHA()
-        if FileManager:IsFile(VersionPath) then
-            return FileManager:ReadFile(VersionPath)
-        end
-    end
-
-    local RemoteSHA = GetRemoteSHA()
-    local LocalSHA = GetLocalSHA()
-
-    if LocalSHA and RemoteSHA and LocalSHA == RemoteSHA then
-        return BuildAssetLoader()
     end
 
     local function HttpGetWithRetry(Url, MaxRetries)
@@ -208,16 +158,41 @@ local function AssetLoader()
         return nil
     end
 
+    local function GetRemoteSHA()
+        local Body = HttpGetWithRetry("https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main")
+        local Data = SafeJSONDecode(Body)
+        if Data and Data.sha then
+            return Data.sha
+        end
+
+        Body = HttpGetWithRetry("https://api.github.com/repos/amzfdrsigusk-ops/Legacy/git/refs/heads/main")
+        Data = SafeJSONDecode(Body)
+        if Data and Data.object and Data.object.sha then
+            return Data.object.sha
+        end
+
+        return nil
+    end
+
+    local function GetLocalSHA()
+        if FileManager:IsFile(VersionPath) then
+            return FileManager:ReadFile(VersionPath)
+        end
+    end
+
+    local RemoteSHA = GetRemoteSHA()
+    local LocalSHA = GetLocalSHA()
+
+    if LocalSHA and RemoteSHA and LocalSHA == RemoteSHA then
+        return BuildAssetLoader()
+    end
+
     local function WalkFolder(RepoPath, LocalPath)
         local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. RepoPath .. "?ref=main"
         local Body = HttpGetWithRetry(Url)
         local Items = SafeJSONDecode(Body)
 
-        if not Items or type(Items) ~= "table" then
-            return
-        end
-
-        if Items.message then
+        if not Items or type(Items) ~= "table" or Items.message then
             return
         end
 
@@ -225,7 +200,9 @@ local function AssetLoader()
             local OutputPath = LocalPath .. "/" .. Item.name
 
             if Item.type == "dir" then
-                FileManager:CreateFolder(OutputPath)
+                if not FileManager:IsFolder(OutputPath) then
+                    FileManager:CreateFolder(OutputPath)
+                end
                 WalkFolder(Item.path, OutputPath)
             elseif Item.type == "file" then
                 local FileBody = HttpGetWithRetry(Item.download_url)
@@ -236,7 +213,23 @@ local function AssetLoader()
         end
     end
 
-    FileManager:CreateFolder("Legacy/Assets")
+    local function RecursiveListFiles(Root, Result)
+        Result = Result or {}
+        for _, Item in ipairs(FileManager:ListFiles(Root)) do
+            Item = FileManager:Normalize(Item)
+            if FileManager:IsFolder(Item) then
+                RecursiveListFiles(Item, Result)
+            else
+                table.insert(Result, Item)
+            end
+        end
+        return Result
+    end
+
+    if not FileManager:IsFolder("Legacy/Assets") then
+        FileManager:CreateFolder("Legacy/Assets")
+    end
+
     WalkFolder("Assets", "Legacy/Assets")
 
     local function CreateFontJson(TtfPath)
@@ -290,7 +283,7 @@ local function AssetLoader()
 
             if Item:lower():match("%.ttf$") then
                 CreateFontJson(Item)
-            elseif not Item:match("%.%w+$") then
+            elseif FileManager:IsFolder(Item) then
                 ScanFonts(Item)
             end
         end
@@ -298,20 +291,20 @@ local function AssetLoader()
 
     ScanFonts("Legacy/Assets/Fonts")
 
-    local PreloadList = {}
-
+    local AllFiles = {}
     if FileManager:IsFolder("Legacy/Assets") then
-        for _, File in ipairs(FileManager:ListFiles("Legacy/Assets")) do
-            if File:match("%.(png|jpg|jpeg|wav|mp3|ogg|json|rbxm|rbxmx|ttf|otf)$") then
-                table.insert(PreloadList, File)
-            end
-        end
+        AllFiles = RecursiveListFiles("Legacy/Assets")
     end
 
     local Loader = BuildAssetLoader()
 
-    for _, File in ipairs(PreloadList) do
-        Loader.Cache[File] = (getcustomasset and getcustomasset(File)) or (getsynasset and getsynasset(File))
+    for _, File in ipairs(AllFiles) do
+        if File:match("%.png$") or File:match("%.jpg$") or File:match("%.jpeg$")
+            or File:match("%.wav$") or File:match("%.mp3$") or File:match("%.ogg$")
+            or File:match("%.json$") or File:match("%.rbxm$") or File:match("%.rbxmx$")
+            or File:match("%.ttf$") or File:match("%.otf$") then
+            Loader.Cache[File] = (getcustomasset and getcustomasset(File)) or (getsynasset and getsynasset(File))
+        end
     end
 
     if RemoteSHA then
