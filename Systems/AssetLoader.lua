@@ -1,14 +1,14 @@
 local HttpService = game:GetService("HttpService")
-local FileManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/amzfdrsigusk-ops/Perseus/main/Systems/FileManager.lua"))()
+local FileManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/amzfdrsigusk-ops/Legacy/main/Systems/FileManager.lua"))()
 
 local function AssetLoader()
-    local VersionPath = "Perseus/.version"
+    local VersionPath = "Legacy/.version"
 
     local function BuildAssetLoader()
         local AssetLoader = {
             Cache = {},
             Roots = {
-                "Perseus/Assets/"
+                "Legacy/Assets/"
             }
         }
 
@@ -57,7 +57,7 @@ local function AssetLoader()
         end
 
         function AssetLoader:GetFont(FontName)
-            local TtfPath = "Perseus/Assets/Fonts/" .. FontName
+            local TtfPath = "Legacy/Assets/Fonts/" .. FontName
             if not TtfPath:lower():match("%.ttf$") then
                 TtfPath = TtfPath .. ".ttf"
             end
@@ -75,7 +75,7 @@ local function AssetLoader()
                 return Font.new("rbxasset://fonts/families/SourceSansPro.json")
             end
 
-            local JsonPath = "Perseus/Assets/Fonts/" .. FontName .. ".json"
+            local JsonPath = "Legacy/Assets/Fonts/" .. FontName .. ".json"
 
             if not FileManager:IsFile(JsonPath) then
                 local FontData = {
@@ -131,7 +131,7 @@ local function AssetLoader()
     end
 
     local function GetRemoteSHA()
-        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Perseus/commits/main"
+        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
         local Data = HttpService:JSONDecode(HttpGet(Url))
         return Data and Data.sha
     end
@@ -150,7 +150,7 @@ local function AssetLoader()
     end
 
     local function WalkFolder(RepoPath, LocalPath)
-        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Perseus/contents/" .. RepoPath .. "?ref=main"
+        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. RepoPath .. "?ref=main"
         local Items = HttpService:JSONDecode(HttpGet(Url))
 
         for _, Item in ipairs(Items) do
@@ -167,8 +167,8 @@ local function AssetLoader()
         end
     end
 
-    FileManager:CreateFolder("Perseus/Assets")
-    WalkFolder("Assets", "Perseus/Assets")
+    FileManager:CreateFolder("Legacy/Assets")
+    WalkFolder("Assets", "Legacy/Assets")
 
     local function CreateFontJson(TtfPath)
         TtfPath = FileManager:Normalize(TtfPath)
@@ -227,12 +227,12 @@ local function AssetLoader()
         end
     end
 
-    ScanFonts("Perseus/Assets/Fonts")
+    ScanFonts("Legacy/Assets/Fonts")
 
     local PreloadList = {}
 
-    if FileManager:IsFolder("Perseus/Assets") then
-        for _, File in ipairs(FileManager:ListFiles("Perseus/Assets")) do
+    if FileManager:IsFolder("Legacy/Assets") then
+        for _, File in ipairs(FileManager:ListFiles("Legacy/Assets")) do
             if File:match("%.(png|jpg|jpeg|wav|mp3|ogg|json|rbxm|rbxmx|ttf|otf)$") then
                 table.insert(PreloadList, File)
             end
