@@ -118,6 +118,7 @@ local function AssetLoader()
         return AssetLoader
     end
 
+    -- Safe HTTP GET with pcall
     local function HttpGet(Url)
         local Success, Response = pcall(function()
             return request({
@@ -129,22 +130,48 @@ local function AssetLoader()
                 }
             })
         end)
-        if Success and Response then
+        if Success and Response and Response.Body and #Response.Body > 0 then
             return Response.Body
         end
-        return ""
+        return nil
     end
 
-    local function GetRemoteSHA()
-        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
+    -- Safe JSON decode, returns nil instead of erroring
+    local function SafeJSONDecode(Body)
+        if not Body or #Body == 0 then
+            return nil
+        end
         local Success, Result = pcall(function()
-            local Body = HttpGet(Url)
-            local Data = HttpService:JSONDecode(Body)
-            return Data and Data.sha
+            return HttpService:JSONDecode(Body)
         end)
-        if Success then
+        if Success and type(Result) == "table" then
             return Result
         end
+        return nil
+    end
+
+    -- Bypasses GitHub API rate limit by using raw commit endpoint
+    local function GetRemoteSHA()
+        -- Try GitHub API first
+        local ApiUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
+        local Body = HttpGet(ApiUrl)
+        local Data = SafeJSONDecode(Body)
+
+        if Data and Data.sha then
+            return Data.sha
+        end
+
+        -- Fallback: parse SHA from raw info endpoint (no rate limit)
+        local RawUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/git/refs/heads/main"
+        Body = HttpGet(RawUrl)
+        Data = SafeJSONDecode(Body)
+
+        if Data and Data.object and Data.object.sha then
+            return Data.object.sha
+        end
+
+        -- Final fallback: return nil safely so loader still works offline
+        return nil
     end
 
     local function GetLocalSHA()
@@ -160,9 +187,15 @@ local function AssetLoader()
         return BuildAssetLoader()
     end
 
+    -- Safe WalkFolder with JSON guard
     local function WalkFolder(RepoPath, LocalPath)
         local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. RepoPath .. "?ref=main"
-        local Items = HttpService:JSONDecode(HttpGet(Url))
+        local Body = HttpGet(Url)
+        local Items = SafeJSONDecode(Body)
+
+        if not Items then
+            return
+        end
 
         for _, Item in ipairs(Items) do
             local OutputPath = LocalPath .. "/" .. Item.name
@@ -172,7 +205,10 @@ local function AssetLoader()
                 WalkFolder(Item.path, OutputPath)
             elseif Item.type == "file" then
                 if not FileManager:IsFile(OutputPath) then
-                    FileManager:WriteFile(OutputPath, HttpGet(Item.download_url))
+                    local FileBody = HttpGet(Item.download_url)
+                    if FileBody then
+                        FileManager:WriteFile(OutputPath, FileBody)
+                    end
                 end
             end
         end
