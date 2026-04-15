@@ -58,6 +58,13 @@ local function FileManager()
         end
     end
 
+    function Manager:DeleteFile(Path)
+        Path = self:Normalize(Path)
+        if isfile(Path) then
+            delfile(Path)
+        end
+    end
+
     function Manager:ListFiles(Path)
         Path = self:Normalize(Path)
 
