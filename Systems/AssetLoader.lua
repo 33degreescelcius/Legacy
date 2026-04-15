@@ -131,12 +131,9 @@ local function AssetLoader()
     end
 
     local function GetRemoteSHA()
-        local Success, Result = pcall(function()
-            local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
-            local Data = HttpService:JSONDecode(HttpGet(Url))
-            return Data and Data.sha
-        end)
-        return Success and Result or nil
+        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
+        local Data = HttpService:JSONDecode(HttpGet(Url))
+        return Data and Data.sha
     end
 
     local function GetLocalSHA()
@@ -145,24 +142,11 @@ local function AssetLoader()
         end
     end
 
+    local RemoteSHA = GetRemoteSHA()
     local LocalSHA = GetLocalSHA()
 
-    if LocalSHA then
-        local RemoteSHA = GetRemoteSHA()
-
-        if not RemoteSHA then
-            warn("[Legacy] Failed to fetch remote SHA, using cached assets")
-            return BuildAssetLoader()
-        end
-
-        if LocalSHA == RemoteSHA then
-            print("[Legacy] Assets up to date, skipping download")
-            return BuildAssetLoader()
-        end
-
-        print("[Legacy] Update detected, redownloading assets...")
-    else
-        print("[Legacy] No local version found, downloading assets...")
+    if LocalSHA and RemoteSHA and LocalSHA == RemoteSHA then
+        return BuildAssetLoader()
     end
 
     local function WalkFolder(RepoPath, LocalPath)
@@ -249,10 +233,7 @@ local function AssetLoader()
 
     if FileManager:IsFolder("Legacy/Assets") then
         for _, File in ipairs(FileManager:ListFiles("Legacy/Assets")) do
-            if File:match("%.png$") or File:match("%.jpg$") or File:match("%.jpeg$")
-            or File:match("%.wav$") or File:match("%.mp3$") or File:match("%.ogg$")
-            or File:match("%.json$") or File:match("%.rbxm$") or File:match("%.rbxmx$")
-            or File:match("%.ttf$") or File:match("%.otf$") then
+            if File:match("%.(png|jpg|jpeg|wav|mp3|ogg|json|rbxm|rbxmx|ttf|otf)$") then
                 table.insert(PreloadList, File)
             end
         end
@@ -264,12 +245,9 @@ local function AssetLoader()
         Loader.Cache[File] = (getcustomasset and getcustomasset(File)) or (getsynasset and getsynasset(File))
     end
 
-    local RemoteSHA = GetRemoteSHA()
     if RemoteSHA then
         FileManager:WriteFile(VersionPath, RemoteSHA)
     end
-
-    print("[Legacy] Assets downloaded and ready")
 
     return Loader
 end
