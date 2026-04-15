@@ -187,8 +187,12 @@ local function AssetLoader()
         return BuildAssetLoader()
     end
 
+    local function EncodeUrlPath(Path)
+        return Path:gsub(" ", "%%20")
+    end
+
     local function WalkFolder(RepoPath, LocalPath)
-        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. RepoPath .. "?ref=main"
+        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. EncodeUrlPath(RepoPath) .. "?ref=main"
         local Body = HttpGetWithRetry(Url)
         local Items = SafeJSONDecode(Body)
 
