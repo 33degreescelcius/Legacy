@@ -229,7 +229,21 @@ local function AssetLoader()
 
     ScanFonts("Legacy/Assets/Fonts")
 
+    local PreloadList = {}
+
+    if FileManager:IsFolder("Legacy/Assets") then
+        for _, File in ipairs(FileManager:ListFiles("Legacy/Assets")) do
+            if File:match("%.(png|jpg|jpeg|wav|mp3|ogg|json|rbxm|rbxmx|ttf|otf)$") then
+                table.insert(PreloadList, File)
+            end
+        end
+    end
+
     local Loader = BuildAssetLoader()
+
+    for _, File in ipairs(PreloadList) do
+        Loader.Cache[File] = (getcustomasset and getcustomasset(File)) or (getsynasset and getsynasset(File))
+    end
 
     if RemoteSHA then
         FileManager:WriteFile(VersionPath, RemoteSHA)
