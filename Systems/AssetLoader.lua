@@ -245,18 +245,23 @@ local function AssetLoader()
 
     ScanFonts("Legacy/Assets/Fonts")
 
-    local PreloadList = {}
-
-    if FileManager:IsFolder("Legacy/Assets") then
-        for _, File in ipairs(FileManager:ListFiles("Legacy/Assets")) do
-            if File:match("%.png$") or File:match("%.jpg$") or File:match("%.jpeg$")
-            or File:match("%.wav$") or File:match("%.mp3$") or File:match("%.ogg$")
-            or File:match("%.json$") or File:match("%.rbxm$") or File:match("%.rbxmx$")
-            or File:match("%.ttf$") or File:match("%.otf$") then
-                table.insert(PreloadList, File)
+    local function ScanAssets(Root, List)
+        if not FileManager:IsFolder(Root) then return end
+        for _, Item in ipairs(FileManager:ListFiles(Root)) do
+            Item = FileManager:Normalize(Item)
+            if Item:match("%.png$") or Item:match("%.jpg$") or Item:match("%.jpeg$")
+            or Item:match("%.wav$") or Item:match("%.mp3$") or Item:match("%.ogg$")
+            or Item:match("%.json$") or Item:match("%.rbxm$") or Item:match("%.rbxmx$")
+            or Item:match("%.ttf$") or Item:match("%.otf$") then
+                table.insert(List, Item)
+            elseif not Item:match("%.%w+$") then
+                ScanAssets(Item, List)
             end
         end
     end
+
+    local PreloadList = {}
+    ScanAssets("Legacy/Assets", PreloadList)
 
     local Loader = BuildAssetLoader()
 
