@@ -118,7 +118,6 @@ local function AssetLoader()
         return AssetLoader
     end
 
-    -- Safe HTTP GET with pcall
     local function HttpGet(Url)
         local Success, Response = pcall(function()
             return request({
@@ -136,7 +135,6 @@ local function AssetLoader()
         return nil
     end
 
-    -- Safe JSON decode, returns nil instead of erroring
     local function SafeJSONDecode(Body)
         if not Body or #Body == 0 then
             return nil
@@ -150,9 +148,7 @@ local function AssetLoader()
         return nil
     end
 
-    -- Bypasses GitHub API rate limit by using raw commit endpoint
     local function GetRemoteSHA()
-        -- Try GitHub API first
         local ApiUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main"
         local Body = HttpGet(ApiUrl)
         local Data = SafeJSONDecode(Body)
@@ -161,7 +157,6 @@ local function AssetLoader()
             return Data.sha
         end
 
-        -- Fallback: parse SHA from raw info endpoint (no rate limit)
         local RawUrl = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/git/refs/heads/main"
         Body = HttpGet(RawUrl)
         Data = SafeJSONDecode(Body)
@@ -170,7 +165,6 @@ local function AssetLoader()
             return Data.object.sha
         end
 
-        -- Final fallback: return nil safely so loader still works offline
         return nil
     end
 
@@ -187,13 +181,43 @@ local function AssetLoader()
         return BuildAssetLoader()
     end
 
-    -- Safe WalkFolder with JSON guard
+    local function HttpGetWithRetry(Url, MaxRetries)
+        MaxRetries = MaxRetries or 3
+        for Attempt = 1, MaxRetries do
+            local Success, Response = pcall(function()
+                return request({
+                    Url = Url,
+                    Method = "GET",
+                    Headers = {
+                        ["User-Agent"] = "Roblox",
+                        ["Accept"] = "application/vnd.github+json"
+                    }
+                })
+            end)
+            if Success and Response and Response.Body and #Response.Body > 0 then
+                local Data = SafeJSONDecode(Response.Body)
+                if Data and Data.message and Data.message:lower():match("rate limit") then
+                    task.wait(2 * Attempt)
+                else
+                    return Response.Body
+                end
+            else
+                task.wait(1)
+            end
+        end
+        return nil
+    end
+
     local function WalkFolder(RepoPath, LocalPath)
         local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. RepoPath .. "?ref=main"
-        local Body = HttpGet(Url)
+        local Body = HttpGetWithRetry(Url)
         local Items = SafeJSONDecode(Body)
 
-        if not Items then
+        if not Items or type(Items) ~= "table" then
+            return
+        end
+
+        if Items.message then
             return
         end
 
@@ -204,11 +228,9 @@ local function AssetLoader()
                 FileManager:CreateFolder(OutputPath)
                 WalkFolder(Item.path, OutputPath)
             elseif Item.type == "file" then
-                if not FileManager:IsFile(OutputPath) then
-                    local FileBody = HttpGet(Item.download_url)
-                    if FileBody then
-                        FileManager:WriteFile(OutputPath, FileBody)
-                    end
+                local FileBody = HttpGetWithRetry(Item.download_url)
+                if FileBody then
+                    FileManager:WriteFile(OutputPath, FileBody)
                 end
             end
         end
