@@ -159,13 +159,13 @@ local function AssetLoader()
     end
 
     local function GetRemoteSHA()
-        local Body = HttpGetWithRetry("https://api.github.com/repos/amzfdrsigusk-ops/Legacy/commits/main")
+        local Body = HttpGetWithRetry("https://api.github.com/repos/33degreescelcius/Legacy/commits/main")
         local Data = SafeJSONDecode(Body)
         if Data and Data.sha then
             return Data.sha
         end
 
-        Body = HttpGetWithRetry("https://api.github.com/repos/amzfdrsigusk-ops/Legacy/git/refs/heads/main")
+        Body = HttpGetWithRetry("https://api.github.com/repos/33degreescelcius/Legacy/git/refs/heads/main")
         Data = SafeJSONDecode(Body)
         if Data and Data.object and Data.object.sha then
             return Data.object.sha
@@ -192,7 +192,7 @@ local function AssetLoader()
     end
 
     local function WalkFolder(RepoPath, LocalPath)
-        local Url = "https://api.github.com/repos/amzfdrsigusk-ops/Legacy/contents/" .. EncodeUrlPath(RepoPath) .. "?ref=main"
+        local Url = "https://api.github.com/repos/33degreescelcius/Legacy/contents/" .. EncodeUrlPath(RepoPath) .. "?ref=main"
         local Body = HttpGetWithRetry(Url)
         local Items = SafeJSONDecode(Body)
 
